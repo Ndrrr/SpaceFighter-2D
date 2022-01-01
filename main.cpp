@@ -15,7 +15,7 @@ using namespace std;
 const int bulletX = 15, bulletY = 15;
 const int windowX = 1200, windowY = 700;
 
-int bullet_cnt, cooldown, damage_multiplier=1;
+int bullet_cnt, cooldown, damage_multiplier=1, skill_point=0;
 
 int speed; 
 struct fire{
@@ -49,8 +49,9 @@ struct button {
 };
 
 struct skill {
-	SDL_Rect cord;
+	SDL_Rect cord, up_cord;
 	vector<SDL_Texture*> textures;
+	SDL_Texture* up_textures[3];
 	int level = 0;
 };
 
@@ -204,19 +205,71 @@ int main(int argc, char* argv[])
 	skills["cooldown"].cord.x = windowX - 70;
 	skills["cooldown"].cord.y = windowY - 70;
 	skills["cooldown"].cord.h = skills["cooldown"].cord.w = 50;
-	surface = IMG_Load("Textures\\Skills\\Cooldown\\red.png");
+	surface = IMG_Load("Textures\\Skills\\Cooldown\\blue.png");
 	skills["cooldown"].textures.push_back(SDL_CreateTextureFromSurface(rend,surface));
-	surface = IMG_Load("Textures\\Skills\\Cooldown\\yellow.png");
-	skills["cooldown"].textures.push_back(SDL_CreateTextureFromSurface(rend, surface));
 	surface = IMG_Load("Textures\\Skills\\Cooldown\\green.png");
 	skills["cooldown"].textures.push_back(SDL_CreateTextureFromSurface(rend, surface));
-	surface = IMG_Load("Textures\\Skills\\Cooldown\\blue.png");
+	surface = IMG_Load("Textures\\Skills\\Cooldown\\yellow.png");
+	skills["cooldown"].textures.push_back(SDL_CreateTextureFromSurface(rend, surface));
+	surface = IMG_Load("Textures\\Skills\\Cooldown\\red.png");
 	skills["cooldown"].textures.push_back(SDL_CreateTextureFromSurface(rend, surface));
 	
+	skills["bulletCnt"].cord.x = windowX - 70;
+	skills["bulletCnt"].cord.y = windowY - 125;
+	skills["bulletCnt"].cord.h = skills["bulletCnt"].cord.w = 50;
+	surface = IMG_Load("Textures\\Skills\\BulletCnt\\blue.png");
+	skills["bulletCnt"].textures.push_back(SDL_CreateTextureFromSurface(rend, surface));
+	surface = IMG_Load("Textures\\Skills\\BulletCnt\\green.png");
+	skills["bulletCnt"].textures.push_back(SDL_CreateTextureFromSurface(rend, surface));
+	surface = IMG_Load("Textures\\Skills\\BulletCnt\\yellow.png");
+	skills["bulletCnt"].textures.push_back(SDL_CreateTextureFromSurface(rend, surface));
+	surface = IMG_Load("Textures\\Skills\\BulletCnt\\red.png");
+	skills["bulletCnt"].textures.push_back(SDL_CreateTextureFromSurface(rend, surface));
 
+	skills["damage"].cord.x = windowX - 70;
+	skills["damage"].cord.y = windowY - 180;
+	skills["damage"].cord.h = skills["damage"].cord.w = 50;
+	surface = IMG_Load("Textures\\Skills\\Damage\\blue.png");
+	skills["damage"].textures.push_back(SDL_CreateTextureFromSurface(rend, surface));
+	surface = IMG_Load("Textures\\Skills\\Damage\\green.png");
+	skills["damage"].textures.push_back(SDL_CreateTextureFromSurface(rend, surface));
+	surface = IMG_Load("Textures\\Skills\\Damage\\yellow.png");
+	skills["damage"].textures.push_back(SDL_CreateTextureFromSurface(rend, surface));
+	surface = IMG_Load("Textures\\Skills\\Damage\\red.png");
+	skills["damage"].textures.push_back(SDL_CreateTextureFromSurface(rend, surface));
+
+	skills["speed"].cord.x = 20;
+	skills["speed"].cord.y = windowY - 160;
+	skills["speed"].cord.h = 140, skills["speed"].cord.w=195;
+	surface = IMG_Load("Textures\\Skills\\Speed\\blue.png");
+	skills["speed"].textures.push_back(SDL_CreateTextureFromSurface(rend, surface));
+	surface = IMG_Load("Textures\\Skills\\Speed\\green.png");
+	skills["speed"].textures.push_back(SDL_CreateTextureFromSurface(rend, surface));
+	surface = IMG_Load("Textures\\Skills\\Speed\\yellow.png");
+	skills["speed"].textures.push_back(SDL_CreateTextureFromSurface(rend, surface));
+	surface = IMG_Load("Textures\\Skills\\Speed\\red.png");
+	skills["speed"].textures.push_back(SDL_CreateTextureFromSurface(rend, surface));
+
+	surface = IMG_Load("Textures\\Skills\\LevelUp\\green.png");
+	skills["speed"].up_textures[0] = skills["damage"].up_textures[0] = skills["bulletCnt"].up_textures[0] = skills["cooldown"].up_textures[0] = SDL_CreateTextureFromSurface(rend, surface);
+
+	surface = IMG_Load("Textures\\Skills\\LevelUp\\yellow.png");
+	skills["speed"].up_textures[1] = skills["damage"].up_textures[1] = skills["bulletCnt"].up_textures[1] = skills["cooldown"].up_textures[1] = SDL_CreateTextureFromSurface(rend, surface);
+
+	surface = IMG_Load("Textures\\Skills\\LevelUp\\red.png");
+	skills["speed"].up_textures[2] = skills["damage"].up_textures[2] = skills["bulletCnt"].up_textures[2] = skills["cooldown"].up_textures[2] = SDL_CreateTextureFromSurface(rend, surface);
+	for (auto &itr : skills) {
+		itr.second.up_cord.h = 50;
+		itr.second.up_cord.w = 50;
+		itr.second.up_cord.x = itr.second.cord.x - 50;
+		itr.second.up_cord.y = itr.second.cord.y;
+	}
+	skills["speed"].up_cord.h = skills["speed"].up_cord.w = 50;
+	skills["speed"].up_cord.x += 270;
+	skills["speed"].up_cord.y = windowY - 45;
 	TTF_Font* font = TTF_OpenFont("Textures\\evilEmpire.ttf", 100);
 	if (font == NULL) {
-		printf("dfd%s", TTF_GetError());
+		printf("%s", TTF_GetError());
 	}
 	SDL_Color White = { 255,255,255,255 };
 
@@ -272,10 +325,14 @@ int main(int argc, char* argv[])
 	bullet_cnt = 0; // 3 bullet
 	cooldown = 25; 
 	damage_multiplier = 1; // explosion 
-	int cooldown_cnt = 30; 
+	int cooldown_cnt = 30, used_skill_point=0; 
 	int bullet_crd[4][4] = {{33,0,0,0},{0,66,0,0},{0,33,66,0},{-8,18,44,70}};
+	long long starting_time = time(NULL);
 	//animation loop
 	while (!close) {
+		
+		skill_point = score / 50;
+
 		cooldown_cnt++;
 		SDL_Event event;
 		if (!pause) {
@@ -329,6 +386,12 @@ int main(int argc, char* argv[])
 					case SDL_SCANCODE_E:
 						stop_debug = 1 - stop_debug; //only for debug
  						break;
+					case SDL_SCANCODE_G:
+						score += 10;// 
+						break;
+					case SDL_SCANCODE_T:
+						cout << time(NULL) - starting_time << endl;
+						break;
 					case SDL_SCANCODE_ESCAPE:
 					case SDL_SCANCODE_P:
 						pause = 1-pause;
@@ -350,19 +413,32 @@ int main(int argc, char* argv[])
 						main_pos.x += speed / 30;
 						break;
 					case SDL_SCANCODE_1:
-						bullet_cnt++;
+						if (skill_point - used_skill_point > 0 && skills["bulletCnt"].level < 3) {
+							bullet_cnt++;
+							skills["bulletCnt"].level++;
+							used_skill_point++;
+						}
 						break;
 					case SDL_SCANCODE_2:
-						if (skills["cooldown"].level < 4) {
+						if (skill_point - used_skill_point > 0 && skills["cooldown"].level < 3) {
 							skills["cooldown"].level++;
 							cooldown -= 5;
+							used_skill_point++;
 						}
 						break;
 					case SDL_SCANCODE_3:
-						speed += 30;
+						if (skill_point - used_skill_point > 0 && skills["speed"].level < 3) {
+							skills["speed"].level++;
+							speed += 30;
+							used_skill_point++;
+						}
 						break;
 					case SDL_SCANCODE_4:
-						damage_multiplier++;
+						if (skill_point - used_skill_point > 0 && skills["damage"].level < 3) {
+							damage_multiplier++;
+							skills["damage"].level++;
+							used_skill_point++;
+						}
 						break;
 					default:
 						break;
@@ -404,8 +480,11 @@ int main(int argc, char* argv[])
 				SDL_RenderCopy(rend, spaceship_texture, NULL, &main_pos);
 				//score update
 				scr = "Score: " + to_string(score);
-				const char* scoreText = scr.c_str();
-				surface = TTF_RenderText_Solid(font, scoreText, White);
+				surface = TTF_RenderText_Solid(font, scr.c_str(), White);
+				if (surface == NULL) {
+					cout <<time(NULL)-starting_time<<" "<< TTF_GetError() << endl;
+				}
+
 				scoreTextTexture = SDL_CreateTextureFromSurface(rend, surface);
 				SDL_FreeSurface(surface);
 				SDL_RenderCopy(rend, scoreTextTexture, NULL, &scoreTextPos);
@@ -461,16 +540,19 @@ int main(int argc, char* argv[])
 
 				}
 				score += (enemies.size() - enemies_tmp.size()-escaped_enemies) * 10;
+				
 				enemies.clear();
 				for (int i = 0; i < enemies_tmp.size(); i++) {
 					enemies.push_back(enemies_tmp[i]);
 				}
 				enemies_tmp.clear();
 
-				// triggers the double buffers
-				// for multiple rendering
-				SDL_RenderCopy(rend, skills["cooldown"].textures[skills["cooldown"].level], NULL, &skills["cooldown"].cord);
-
+				for (auto itr : skills) {
+					SDL_RenderCopy(rend, itr.second.textures[itr.second.level], NULL, &itr.second.cord);
+					if(skill_point - used_skill_point > 0 && itr.second.level<3)
+					SDL_RenderCopy(rend, itr.second.up_textures[itr.second.level], NULL, &itr.second.up_cord);
+					//cout << itr.first << endl;
+				}
 				SDL_RenderPresent(rend);
 			}
 
