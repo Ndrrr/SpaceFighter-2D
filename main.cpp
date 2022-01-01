@@ -16,17 +16,19 @@ const int bulletX = 15, bulletY = 15;
 const int windowX = 1200, windowY = 700;
 
 int bullet_cnt, cooldown, damage_multiplier=1;
+
+int speed; 
 struct fire{
-	SDL_Rect dest;
+	SDL_Rect pos;
 	int life = 100;
-	int damage = 50; 
+	int damage = 1; 
 	long long id;
 	SDL_Texture* texture;
 };
 
 struct enemy {
-	SDL_Rect dest;
-	int HP = 200;
+	SDL_Rect pos;
+	int HP = 4;
 	int hit_tex_life = 11;
 	set<long long> hit_by;
 	SDL_Texture* texture; // change enemy color green->yellow->red by health FT510
@@ -46,19 +48,27 @@ struct button {
 	}
 };
 
+struct skill {
+	SDL_Rect cord;
+	vector<SDL_Texture*> textures;
+	int level = 0;
+};
 
-bool check_hit(fire fr, enemy en) {
-	if ((fr.dest.x<en.dest.x+30 && fr.dest.x > en.dest.x &&fr.dest.y<en.dest.y && fr.dest.y >en.dest.y-30)||
-		(fr.dest.x+bulletX<en.dest.x + 30 && fr.dest.x+bulletX > en.dest.x && fr.dest.y<en.dest.y && fr.dest.y >en.dest.y - 30)) {
-		return 1;
-	}
-	return 0;
-}
 
 struct luck {
 	int cooldown = 10;
 	int id; // 1-bullet++, 2 - cooldown--, 3 - damage++, 4 cooldown++ FT510
 };
+
+
+bool check_hit(fire fr, enemy en) {
+	if ((fr.pos.x<en.pos.x + 30 && fr.pos.x > en.pos.x && fr.pos.y<en.pos.y && fr.pos.y >en.pos.y - 30) ||
+		(fr.pos.x + bulletX<en.pos.x + 30 && fr.pos.x + bulletX > en.pos.x && fr.pos.y<en.pos.y && fr.pos.y >en.pos.y - 30)) {
+		return 1;
+	}
+	return 0;
+}
+
 
 int main(int argc, char* argv[])
 {
@@ -96,6 +106,7 @@ int main(int argc, char* argv[])
 	
 	//
 	map<string,button> buttons;
+	map<string, skill> skills;
 	button tmp;
 	SDL_Texture* tmpTex;
 	//import textures
@@ -115,6 +126,14 @@ int main(int argc, char* argv[])
 	SDL_Texture* green_enemy = SDL_CreateTextureFromSurface(rend, surface);
 	SDL_FreeSurface(surface);
 
+	surface = IMG_Load("Textures\\yellow_enemies.png");
+	SDL_Texture* yellow_enemy = SDL_CreateTextureFromSurface(rend, surface);
+	SDL_FreeSurface(surface);
+
+	surface = IMG_Load("Textures\\red_enemies.png");
+	SDL_Texture* red_enemy = SDL_CreateTextureFromSurface(rend, surface);
+	SDL_FreeSurface(surface);
+
 	surface = IMG_Load("Textures\\lucky_enemy.png");
 	SDL_Texture* lucky_enemy = SDL_CreateTextureFromSurface(rend, surface);
 	SDL_FreeSurface(surface);
@@ -123,9 +142,6 @@ int main(int argc, char* argv[])
 	SDL_Texture* on_hit_tex = SDL_CreateTextureFromSurface(rend, surface);
 	SDL_FreeSurface(surface);
 	
-	surface = IMG_Load("Textures\\UI\\Asset 10.png");
-	SDL_Texture* pauseTexture = SDL_CreateTextureFromSurface(rend, surface);
-	SDL_FreeSurface(surface);
 
 
 	// add information about keybinding to pause screen FT510
@@ -184,6 +200,20 @@ int main(int argc, char* argv[])
 	SDL_FreeSurface(surface);
 	buttons["continue"].texture2 = tmpTex;
 
+	
+	skills["cooldown"].cord.x = windowX - 70;
+	skills["cooldown"].cord.y = windowY - 70;
+	skills["cooldown"].cord.h = skills["cooldown"].cord.w = 50;
+	surface = IMG_Load("Textures\\Skills\\Cooldown\\red.png");
+	skills["cooldown"].textures.push_back(SDL_CreateTextureFromSurface(rend,surface));
+	surface = IMG_Load("Textures\\Skills\\Cooldown\\yellow.png");
+	skills["cooldown"].textures.push_back(SDL_CreateTextureFromSurface(rend, surface));
+	surface = IMG_Load("Textures\\Skills\\Cooldown\\green.png");
+	skills["cooldown"].textures.push_back(SDL_CreateTextureFromSurface(rend, surface));
+	surface = IMG_Load("Textures\\Skills\\Cooldown\\blue.png");
+	skills["cooldown"].textures.push_back(SDL_CreateTextureFromSurface(rend, surface));
+	
+
 	TTF_Font* font = TTF_OpenFont("Textures\\evilEmpire.ttf", 100);
 	if (font == NULL) {
 		printf("dfd%s", TTF_GetError());
@@ -195,7 +225,7 @@ int main(int argc, char* argv[])
 	SDL_Texture* scoreTextTexture;
 	// let us control our image position
 	// so that we can move it with our keyboard.
-	SDL_Rect main_pos, cord, laser_dest,scoreTextPos,background1,background2;
+	SDL_Rect main_pos, cord,scoreTextPos,background1,background2;
 	
 	background1.x = background1.y = background2.x = 0; background2.y = -windowY;
 	background1.w = background2.w= windowX, background1.h = background2.h = windowY;
@@ -221,8 +251,6 @@ int main(int argc, char* argv[])
 	// controls annimation loop
 	int close = 0;
 
-	// speed of characther
-	int speed = 600;
 	
 
 	vector <fire> fires,fires_tmp; 
@@ -237,12 +265,14 @@ int main(int argc, char* argv[])
 	int pause = 1, stop_debug=0;
 	bool startFlag = 0;
 
+	speed = 600; // spaceship
 	//skills
 	//add these skills -> bullet cnt ++, cooldown --, movement speed ++, bullet damage ++( multiple bullet under 1 image max 3) FT510
 	// add these extras -> lucky enemies with special ammos - 4 bullet in one , unlucky bullet increase enemy health, big bullet 
-	bullet_cnt = 0;
-	cooldown = 15;
-	int cooldown_cnt = 30;
+	bullet_cnt = 0; // 3 bullet
+	cooldown = 25; 
+	damage_multiplier = 1; // explosion 
+	int cooldown_cnt = 30; 
 	int bullet_crd[4][4] = {{33,0,0,0},{0,66,0,0},{0,33,66,0},{-8,18,44,70}};
 	//animation loop
 	while (!close) {
@@ -254,15 +284,19 @@ int main(int argc, char* argv[])
 			if (counter % 100 == 0) {
 
 				
-				en.dest = cord;
-				en.dest.x = mt() % (windowX - 150) + 15;
+				en.pos = cord;
+				en.pos.x = mt() % (windowX - 200) + 15;
 				en.texture = green_enemy;
-				if (mt() % 10 == 0) en.texture = lucky_enemy;
+				
+				// luck block enemies FT510
+				//if (mt() % 10 == 0) en.texture = lucky_enemy;
+				
+				
 				enemies.push_back(en);
 				
-				SDL_QueryTexture(en.texture, NULL, NULL, &enemies[enemies.size() - 1].dest.w, &enemies[enemies.size() - 1].dest.h);
-				enemies[enemies.size() - 1].dest.w = 30;
-				enemies[enemies.size() - 1].dest.h = 30;
+				SDL_QueryTexture(en.texture, NULL, NULL, &enemies[enemies.size() - 1].pos.w, &enemies[enemies.size() - 1].pos.h);
+				enemies[enemies.size() - 1].pos.w = 30;
+				enemies[enemies.size() - 1].pos.h = 30;
 			}
 			// Events management
 			while (SDL_PollEvent(&event)) {
@@ -275,13 +309,15 @@ int main(int argc, char* argv[])
 				case SDL_MOUSEBUTTONDOWN:
 					if (event.button.button == SDL_BUTTON_LEFT && cooldown_cnt>=cooldown) {
 						for (int i = 0; i < bullet_cnt%4+1; i++) {
-							fr.dest = main_pos;
-							fr.dest.x += bullet_crd[bullet_cnt%4][i];
-							fires.push_back(fr);
-							fr.id = fire_id++;
-							SDL_QueryTexture(laser_tex, NULL, NULL, &fires[fires.size() - 1].dest.w, &fires[fires.size() - 1].dest.h);
-							fires[fires.size() - 1].dest.w = bulletX;
-							fires[fires.size() - 1].dest.h = bulletY;
+							for (int j = 0; j < damage_multiplier; j++) {
+								fr.pos = main_pos;
+								fr.pos.x += bullet_crd[bullet_cnt % 4][i];
+								fires.push_back(fr);
+								fr.id = fire_id++;
+								SDL_QueryTexture(laser_tex, NULL, NULL, &fires[fires.size() - 1].pos.w, &fires[fires.size() - 1].pos.h);
+								fires[fires.size() - 1].pos.w = bulletX;
+								fires[fires.size() - 1].pos.h = bulletY;
+							}
 						}
 						cooldown_cnt = 0;
 					}
@@ -315,6 +351,19 @@ int main(int argc, char* argv[])
 						break;
 					case SDL_SCANCODE_1:
 						bullet_cnt++;
+						break;
+					case SDL_SCANCODE_2:
+						if (skills["cooldown"].level < 4) {
+							skills["cooldown"].level++;
+							cooldown -= 5;
+						}
+						break;
+					case SDL_SCANCODE_3:
+						speed += 30;
+						break;
+					case SDL_SCANCODE_4:
+						damage_multiplier++;
+						break;
 					default:
 						break;
 					}
@@ -360,12 +409,11 @@ int main(int argc, char* argv[])
 				scoreTextTexture = SDL_CreateTextureFromSurface(rend, surface);
 				SDL_FreeSurface(surface);
 				SDL_RenderCopy(rend, scoreTextTexture, NULL, &scoreTextPos);
-				//SDL_RenderCopy(rend, pauseTexture, NULL, &center);
 
 
 				for (int i = 0; i < fires.size(); i++) {
 					if (fires[i].life > 0) {
-						SDL_RenderCopy(rend, laser_tex, NULL, &fires[i].dest);
+						SDL_RenderCopy(rend, laser_tex, NULL, &fires[i].pos);
 						for (int j = 0; j < enemies.size(); j++) {
 							if (check_hit(fires[i], enemies[j])) {
 								//cout << enemies[j].hit_by.size() << endl;
@@ -373,8 +421,8 @@ int main(int argc, char* argv[])
 								enemies[j].hit_by.insert(fires[i].id);
 							}
 						}
-						//fires[i].dest.x += 10;
-						fires[i].dest.y -= 10;
+						//fires[i].pos.x += 10;
+						fires[i].pos.y -= 10;
 						fires[i].life--;
 						if (fires[i].life > 0)
 							fires_tmp.push_back(fires[i]);
@@ -386,18 +434,25 @@ int main(int argc, char* argv[])
 				fires_tmp.clear();
 				int escaped_enemies = 0;
 				for (int i = 0; i < enemies.size(); i++) {
-					if (enemies[i].dest.y >= 800) escaped_enemies++;
-					if (enemies[i].hit_by.size() < 4 && enemies[i].dest.y < 800) {
+					if (enemies[i].pos.y >= 800) escaped_enemies++;
+					if (enemies[i].hit_by.size() < enemies[i].HP && enemies[i].pos.y < 800) {
+
+						// change color by health
+						if (enemies[i].hit_by.size() >= enemies[i].HP / 3 * 2) enemies[i].texture = red_enemy;
+						else if (enemies[i].hit_by.size() >= enemies[i].HP / 3) enemies[i].texture = yellow_enemy;
+						
+						
+
 						if (enemies[i].hit_tex_life <= 10 && enemies[i].hit_tex_life > 0) {
-							SDL_RenderCopy(rend, on_hit_tex, NULL, &enemies[i].dest);
+							SDL_RenderCopy(rend, on_hit_tex, NULL, &enemies[i].pos);
 							enemies[i].hit_tex_life--;
 						}
 						else if (enemies[i].hit_tex_life <= 0 || enemies[i].hit_tex_life == 11) {
 							enemies[i].hit_tex_life = 11;
-							SDL_RenderCopy(rend, enemies[i].texture, NULL, &enemies[i].dest);
+							SDL_RenderCopy(rend, enemies[i].texture, NULL, &enemies[i].pos);
 						}
-						//fires[i].dest.x += 10;
-						enemies[i].dest.y += 2;
+						//fires[i].pos.x += 10;
+						enemies[i].pos.y += 2;
 						enemies_tmp.push_back(enemies[i]);
 					}
 					else if (enemies[i].hit_by.size() >= 4 && enemies[i].texture == lucky_enemy) {
@@ -414,6 +469,8 @@ int main(int argc, char* argv[])
 
 				// triggers the double buffers
 				// for multiple rendering
+				SDL_RenderCopy(rend, skills["cooldown"].textures[skills["cooldown"].level], NULL, &skills["cooldown"].cord);
+
 				SDL_RenderPresent(rend);
 			}
 
@@ -500,7 +557,7 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	// destroy texture
+	// posroy texture
 	SDL_DestroyTexture(spaceship_texture);
 	SDL_DestroyTexture(background_image);
 	SDL_DestroyTexture(background_image2);
