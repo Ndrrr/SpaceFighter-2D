@@ -15,7 +15,7 @@ using namespace std;
 const int bulletX = 15, bulletY = 15;
 const int windowX = 1200, windowY = 700;
 
-int bullet_cnt, cooldown, damage_multiplier=1, skill_point=0;
+int bullet_cnt, cooldown, damage_multiplier=1, skill_point=0, characther_HP=20;
 
 int speed; 
 struct fire{
@@ -70,6 +70,20 @@ bool check_hit(fire fr, enemy en) {
 	return 0;
 }
 
+void RenderHPBar(int x, int y, int w, int h, float Percent, SDL_Color FGColor, SDL_Color BGColor, SDL_Renderer* Renderer) {
+	Percent = Percent > 1.f ? 1.f : Percent < 0.f ? 0.f : Percent;
+	SDL_Color old;
+	SDL_GetRenderDrawColor(Renderer, &old.r, &old.g, &old.g, &old.a);
+	SDL_Rect bgrect = { x, y, w, h };
+	SDL_SetRenderDrawColor(Renderer, BGColor.r, BGColor.g, BGColor.b, BGColor.a);
+	SDL_RenderFillRect(Renderer, &bgrect);
+	SDL_SetRenderDrawColor(Renderer, FGColor.r, FGColor.g, FGColor.b, FGColor.a);
+	int pw = (int)((float)w * Percent);
+	int px = x + (w - pw);
+	SDL_Rect fgrect = { px, y, pw, h };
+	SDL_RenderFillRect(Renderer, &fgrect);
+	SDL_SetRenderDrawColor(Renderer, old.r, old.g, old.b, old.a);
+}
 
 int main(int argc, char* argv[])
 {
@@ -90,13 +104,13 @@ int main(int argc, char* argv[])
 	}
 
 	SDL_Init(SDL_INIT_VIDEO);
-	SDL_Window* win = SDL_CreateWindow("GAME", // creates a window
+	SDL_Window* win = SDL_CreateWindow("Space Fighter", // creates a window
 		SDL_WINDOWPOS_CENTERED,
 		SDL_WINDOWPOS_CENTERED,
 		windowX, windowY, 0);
 
 	// triggers the program that controls
-	// your graphics hardware and sets flags
+	// graphics hardware and sets flags
 	Uint32 render_flags = SDL_RENDERER_ACCELERATED;
 
 	// creates a renderer to render our images
@@ -106,8 +120,10 @@ int main(int argc, char* argv[])
 	SDL_Surface* surface;
 	
 	//
-	map<string,button> buttons;
+	map<string,button> buttons, gameOverButtons;
 	map<string, skill> skills;
+
+	// for saving temporarily
 	button tmp;
 	SDL_Texture* tmpTex;
 	//import textures
@@ -201,6 +217,22 @@ int main(int argc, char* argv[])
 	SDL_FreeSurface(surface);
 	buttons["continue"].texture2 = tmpTex;
 
+	surface = IMG_Load("Textures\\UI\\restartButton.png");
+	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
+	SDL_FreeSurface(surface);
+	gameOverButtons["restart"].texture = tmpTex;
+	gameOverButtons["restart"].cord.x = gameOverButtons["restart"].cord.y = 50;
+	gameOverButtons["restart"].cord.w = 250; gameOverButtons["restart"].cord.h = 100;
+	gameOverButtons["restart"].id = 0;
+	surface = IMG_Load("Textures\\UI\\restartButton2.png");
+	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
+	SDL_FreeSurface(surface);
+	gameOverButtons["restart"].texture2 = tmpTex;
+
+	gameOverButtons["quit"] = buttons["quit"];
+	gameOverButtons["quit"].id = 1;
+	gameOverButtons["quit"].cord.x = buttons["settings"].cord.x;
+	gameOverButtons["quit"].cord.y = buttons["settings"].cord.y;
 	
 	skills["cooldown"].cord.x = windowX - 70;
 	skills["cooldown"].cord.y = windowY - 70;
@@ -271,7 +303,7 @@ int main(int argc, char* argv[])
 	if (font == NULL) {
 		printf("%s", TTF_GetError());
 	}
-	SDL_Color White = { 255,255,255,255 };
+	SDL_Color White = { 255,255,255,255 }, random = {255,0,0,255};
 
 	long score = 0;
 	string scr;
@@ -291,7 +323,7 @@ int main(int argc, char* argv[])
 	// connects our texture with main_pos to control position
 	SDL_QueryTexture(spaceship_texture, NULL, NULL, &main_pos.w, &main_pos.h);
 
-	// adjust height and width of our image box.
+	// adjust height and width of our spaceship.
 	main_pos.w = 80;
 	main_pos.h = 80;
 
@@ -325,7 +357,7 @@ int main(int argc, char* argv[])
 	bullet_cnt = 0; // 3 bullet
 	cooldown = 25; 
 	damage_multiplier = 1; // explosion 
-	int cooldown_cnt = 30, used_skill_point=0; 
+	int cooldown_cnt = 30, used_skill_point=0, escapedEnemies=0; 
 	int bullet_crd[4][4] = {{33,0,0,0},{0,66,0,0},{0,33,66,0},{-8,18,44,70}};
 	long long starting_time = time(NULL);
 	//animation loop
@@ -335,7 +367,91 @@ int main(int argc, char* argv[])
 
 		cooldown_cnt++;
 		SDL_Event event;
-		if (!pause) {
+		if (escapedEnemies >= characther_HP) {
+			while (SDL_PollEvent(&event)) {
+
+				switch (event.type) {
+				case SDL_QUIT:
+					// handling of close button
+					close = 1;
+					break;
+				case SDL_MOUSEBUTTONUP:
+					if (event.button.button == SDL_BUTTON_LEFT) {
+						int x, y;
+						SDL_GetMouseState(&x, &y);
+						map<string, button>::iterator itr;
+						//printf("%d %d\n", x, y);
+						for (itr = gameOverButtons.begin(); itr != gameOverButtons.end(); itr++) {
+							if ((*itr).second.check_pressed(x, y) != -1) {
+								//cout << (*itr).second.check_pressed(x, y) << " "<<(*itr).second.id << endl;
+								switch ((*itr).second.check_pressed(x, y))
+								{
+								case 0://restart everything
+									main_pos.x = (windowX - main_pos.w) / 2;
+									main_pos.y = (windowY - main_pos.h) / 2;
+
+									fires.clear();
+									enemies.clear();
+									skill_point = 0;
+									cooldown = 25, damage_multiplier = 1, bullet_cnt = 0,speed=600;
+									cooldown_cnt = 30, used_skill_point = 0, escapedEnemies = 0;
+									for (auto &itr : skills) {
+										itr.second.level = 0;
+									}
+									startFlag = 0;
+									fire_id = 0;
+									counter = -1;
+									score = 0;
+									break;
+								case 1:
+									close = 1;
+									break;
+								default:
+									break;
+								}
+							}
+						}
+					}
+					break;
+				case SDL_KEYDOWN:
+					switch (event.key.keysym.scancode) {
+					case SDL_SCANCODE_P:
+						pause = 1 - pause;
+						break;
+					default:
+						break;
+					}
+				default:
+					break;
+				}
+
+			}
+			SDL_RenderClear(rend);
+			SDL_RenderCopy(rend, pauseBackgroundTexture, NULL, NULL);
+			SDL_RenderCopy(rend, gameOverButtons["restart"].texture, NULL, &gameOverButtons["restart"].cord);
+			SDL_RenderCopy(rend, gameOverButtons["quit"].texture, NULL, &gameOverButtons["quit"].cord);
+			int x, y;
+			SDL_GetMouseState(&x, &y);
+			for (auto itr : buttons) {
+				switch (itr.second.check_pressed(x, y))
+				{
+				case 0:
+					SDL_RenderCopy(rend, gameOverButtons["restart"].texture2, NULL, &gameOverButtons["restart"].cord);
+					break;
+				case 1:
+					SDL_RenderCopy(rend, gameOverButtons["quit"].texture2, NULL, &gameOverButtons["quit"].cord);
+					break;
+				default:
+					break;
+				}
+			}
+			SDL_RenderPresent(rend);
+
+			// calculates to 60 fps
+			SDL_Delay(windowX / 60);
+		}
+		else if (!pause) {
+			//Main Game
 			if (counter > 10000) counter = -1;
 			counter++;
 			if (counter % 100 == 0) {
@@ -384,13 +500,13 @@ int main(int argc, char* argv[])
 				case SDL_KEYDOWN:
 					switch (event.key.keysym.scancode) {
 					case SDL_SCANCODE_E:
-						stop_debug = 1 - stop_debug; //only for debug
+						stop_debug = 1 - stop_debug; // for debug
  						break;
 					case SDL_SCANCODE_G:
-						score += 10;// 
+						score += 10; // for not wasting time
 						break;
 					case SDL_SCANCODE_T:
-						cout << time(NULL) - starting_time << endl;
+						cout << time(NULL) - starting_time << endl; // for fixing some time related bugs
 						break;
 					case SDL_SCANCODE_ESCAPE:
 					case SDL_SCANCODE_P:
@@ -511,7 +627,7 @@ int main(int argc, char* argv[])
 				fires.clear();
 				for (int i = 0; i < fires_tmp.size(); i++) fires.push_back(fires_tmp[i]);
 				fires_tmp.clear();
-				int escaped_enemies = 0;
+				int escaped_enemies = 0; // escaped enemies for 1 unit of time
 				for (int i = 0; i < enemies.size(); i++) {
 					if (enemies[i].pos.y >= 800) escaped_enemies++;
 					if (enemies[i].hit_by.size() < enemies[i].HP && enemies[i].pos.y < 800) {
@@ -539,6 +655,7 @@ int main(int argc, char* argv[])
 					}
 
 				}
+				escapedEnemies += escaped_enemies;
 				score += (enemies.size() - enemies_tmp.size()-escaped_enemies) * 10;
 				
 				enemies.clear();
@@ -553,6 +670,7 @@ int main(int argc, char* argv[])
 					SDL_RenderCopy(rend, itr.second.up_textures[itr.second.level], NULL, &itr.second.up_cord);
 					//cout << itr.first << endl;
 				}
+				RenderHPBar(windowX - 300, windowY-25, 200, 20, escapedEnemies*1.0/characther_HP, White, random, rend);
 				SDL_RenderPresent(rend);
 			}
 
