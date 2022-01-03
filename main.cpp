@@ -97,7 +97,142 @@ void RenderHPBar(int x, int y, int w, int h, float Percent, SDL_Color FGColor, S
 	SDL_SetRenderDrawColor(Renderer, old.r, old.g, old.b, old.a);
 }
 
+void EntryAnimation(SDL_Renderer* rend, SDL_Texture* background_image, SDL_Event event) {
+	string text = "2121...\nAliens are trying to invade the Earth...\nYou are the last hope of the planet...\nYou should not let aliens pass you...\n          Good Luck Agent!!!", text_on_screen = "";
+	SDL_Color yellow = { 255,255,0 };
+	SDL_RenderCopy(rend, background_image, NULL, NULL);
+	SDL_Surface* textSurface;
+	SDL_Texture* textTexture;
+	SDL_Rect textPos = { 20,50,20,20 }, dotPos = { 0,0,5,20 }, exclamationPos = { 0,0,10,20 };
+	
+	TTF_Font* font = TTF_OpenFont("Textures\\evilEmpire.ttf", 500);
+	Mix_Chunk* keyPressSFX = Mix_LoadWAV("Audio\\keyPress.mp3");
+	bool exit = 0;
+	for (int i = 0; i < text.length(); i++) {
+		// stop animation if enter or space is pressed
+		while (SDL_PollEvent(&event)) {
+			switch (event.type) {
+			case SDL_QUIT:
+				exit = 1;
+				break;
+			case SDL_KEYDOWN:
+				switch (event.key.keysym.scancode) {
+				case SDL_SCANCODE_RETURN:
+				case SDL_SCANCODE_SPACE:
+					exit = 1;
+					break;
+				default:
+					break;
+				}
+			default:
+				break;
+			}
+		}
+		if (exit == 1) {
+			SDL_RenderClear(rend);
+			return;
+		}
 
+
+		text_on_screen = text[i];
+		// if new line is encountered change position of next characther
+		if (text[i] == '\n') {
+			textPos.x = 20;
+			textPos.y += 40;
+			continue;
+		}
+		else textPos.x += 20;
+
+		textSurface = TTF_RenderText_Solid(font, text_on_screen.c_str(), yellow);
+		textTexture = SDL_CreateTextureFromSurface(rend, textSurface);
+
+		if (text[i]!=' '&& soundOnOff) Mix_PlayChannel(-1, keyPressSFX, 0);
+
+		// . and ! had strange look in other symbols sizes
+		// so I changed their size
+		if (text[i] == '.') {
+			dotPos.x = textPos.x, dotPos.y = textPos.y;
+			if (text[i - 2] == '.') dotPos.x -= 20;
+			else if (text[i - 1] == '.') dotPos.x -= 10;
+			SDL_RenderCopy(rend, textTexture,NULL, &dotPos);
+		}
+		else if (text[i] == '!') {
+			exclamationPos.x = textPos.x, exclamationPos.y = textPos.y;
+			if (text[i - 2] == '!') exclamationPos.x -= 20;
+			else if (text[i - 1] == '!') exclamationPos.x -= 10;
+			SDL_RenderCopy(rend, textTexture, NULL, &exclamationPos);
+		}
+		else
+			SDL_RenderCopy(rend, textTexture, NULL, &textPos);
+		SDL_RenderPresent(rend);
+		SDL_Delay(200);
+	}
+	
+	SDL_Delay(1000);
+	SDL_RenderClear(rend);
+}
+
+void GameOverAnimation(SDL_Renderer* rend, SDL_Texture* background_image) {
+	string text = "Nothing Can Last Forever :(", text_on_screen = "";
+	SDL_Color red = { 255,20,0 };
+	SDL_RenderCopy(rend, background_image, NULL, NULL);
+	SDL_Surface* textSurface;
+	SDL_Texture* textTexture;
+	SDL_Event event;
+	SDL_Rect textPos = { 20,50,30,30 };
+
+	TTF_Font* font = TTF_OpenFont("Textures\\evilEmpire.ttf", 500);
+	Mix_Chunk* keyPressSFX = Mix_LoadWAV("Audio\\keyPress.mp3");
+	bool exit = 0;
+	for (int i = 0; i < text.length(); i++) {
+		// stop animation if enter or space is pressed
+		while (SDL_PollEvent(&event)) {
+			switch (event.type) {
+			case SDL_QUIT:
+				exit = 1;
+				break;
+			case SDL_KEYDOWN:
+				switch (event.key.keysym.scancode) {
+				case SDL_SCANCODE_RETURN:
+				case SDL_SCANCODE_SPACE:
+					exit = 1;
+					break;
+				default:
+					break;
+				}
+			default:
+				break;
+			}
+		}
+		if (exit == 1) {
+			SDL_RenderClear(rend);
+			return;
+		}
+
+
+		text_on_screen = text[i];
+		// if new line is encountered change position of next characther
+		if (text[i] == '\n') {
+			textPos.x = 20;
+			textPos.y += 40;
+			continue;
+		}
+		else textPos.x += 30;
+
+		textSurface = TTF_RenderText_Solid(font, text_on_screen.c_str(), red);
+		textTexture = SDL_CreateTextureFromSurface(rend, textSurface);
+
+		if (text[i] != ' ' && soundOnOff) Mix_PlayChannel(-1, keyPressSFX, 0);
+
+		
+		SDL_RenderCopy(rend, textTexture, NULL, &textPos);
+		SDL_RenderPresent(rend);
+		SDL_Delay(200);
+	}
+
+	SDL_Delay(1000);
+	SDL_RenderClear(rend);
+}
 int main(int argc, char* argv[])
 {
 	mt19937 mt(time(NULL));
@@ -424,6 +559,9 @@ int main(int argc, char* argv[])
 
 	int enemy_spawn_rate_L=MIN_SPAWN_TIME,enemy_spawn_rate_R=MAX_SPAWN_TIME;
 	bool settingsPanelOnOff = 1;
+
+	bool gameOverAnimationPlayed = 0;
+	bool entryAnimationPlayed = 0;
 	//animation loop
 	Uint32 frameStart;
 	int frameTime;
@@ -441,7 +579,13 @@ int main(int argc, char* argv[])
 		//if escapedEnemies is bigger than HP then game is over
 
 		// Game over state
+		
 		if (escapedEnemies >= characther_HP) {
+			if (gameOverAnimationPlayed == 0) {
+				SDL_RenderClear(rend);
+				GameOverAnimation(rend, background_image);
+				gameOverAnimationPlayed = 1;
+			}
 			if (Mix_PausedMusic() == 0)
 			{
 				//pause the music
@@ -804,6 +948,10 @@ int main(int argc, char* argv[])
 									{
 									case 0:
 										if (startFlag == 0) {
+											SDL_RenderClear(rend);
+											EntryAnimation(rend,background_image,event);
+											entryAnimationPlayed = 1;
+
 											startFlag++;
 											// if game started before replace play button with continue
 											buttons["play"].texture = buttons["continue"].texture;
@@ -859,47 +1007,50 @@ int main(int argc, char* argv[])
 				}
 
 			}
-			if (settingsPanelOnOff == 0) {
-				if (soundOnOff == 1)
-					SDL_RenderCopy(rend, buttons["sound"].texture, NULL, &buttons["sound"].cord);
-				else {
-					SDL_RenderCopy(rend, buttons["sound"].texture2, NULL, &buttons["sound"].cord);
+			// if animation is played in this loop 
+			// dont render pause screen again
+			if (entryAnimationPlayed == 0) {
+				if (settingsPanelOnOff == 0) {
+					if (soundOnOff == 1)
+						SDL_RenderCopy(rend, buttons["sound"].texture, NULL, &buttons["sound"].cord);
+					else {
+						SDL_RenderCopy(rend, buttons["sound"].texture2, NULL, &buttons["sound"].cord);
+					}
 				}
-			}
-			SDL_RenderCopy(rend, buttons["play"].texture, NULL, &buttons["play"].cord);
-			SDL_RenderCopy(rend, buttons["settings"].texture, NULL, &buttons["settings"].cord);
-			SDL_RenderCopy(rend, buttons["quit"].texture, NULL, &buttons["quit"].cord);
-			SDL_RenderCopy(rend, keybindsTexture, NULL, &keybindsPos);
-			if (startFlag == 1) {
-				SDL_RenderCopy(rend, buttons["restart"].texture, NULL, &buttons["restart"].cord);
-			}
-
-			//checks if mouse is over button
-			// and highlights it if mouse is over
-			int x, y;
-			SDL_GetMouseState(&x, &y);
-			for (auto itr : buttons) {
-				switch (itr.second.check_pressed(x, y))
-				{
-				case 0:
-					SDL_RenderCopy(rend, buttons["play"].texture2, NULL, &buttons["play"].cord);
-					break;
-				case 1:
-					SDL_RenderCopy(rend, buttons["settings"].texture2, NULL, &buttons["settings"].cord);
-					break;
-				case 2:
-					SDL_RenderCopy(rend, buttons["quit"].texture2, NULL, &buttons["quit"].cord);
-					break;
-				case 4:
-					if(startFlag==1)
-						SDL_RenderCopy(rend, buttons["restart"].texture2, NULL, &buttons["restart"].cord);
-					break;
-				default:
-					break;
+				SDL_RenderCopy(rend, buttons["play"].texture, NULL, &buttons["play"].cord);
+				SDL_RenderCopy(rend, buttons["settings"].texture, NULL, &buttons["settings"].cord);
+				SDL_RenderCopy(rend, buttons["quit"].texture, NULL, &buttons["quit"].cord);
+				SDL_RenderCopy(rend, keybindsTexture, NULL, &keybindsPos);
+				if (startFlag == 1) {
+					SDL_RenderCopy(rend, buttons["restart"].texture, NULL, &buttons["restart"].cord);
 				}
-			}
-			SDL_RenderPresent(rend);
 
+				//checks if mouse is over button
+				// and highlights it if mouse is over
+				int x, y;
+				SDL_GetMouseState(&x, &y);
+				for (auto itr : buttons) {
+					switch (itr.second.check_pressed(x, y))
+					{
+					case 0:
+						SDL_RenderCopy(rend, buttons["play"].texture2, NULL, &buttons["play"].cord);
+						break;
+					case 1:
+						SDL_RenderCopy(rend, buttons["settings"].texture2, NULL, &buttons["settings"].cord);
+						break;
+					case 2:
+						SDL_RenderCopy(rend, buttons["quit"].texture2, NULL, &buttons["quit"].cord);
+						break;
+					case 4:
+						if (startFlag == 1)
+							SDL_RenderCopy(rend, buttons["restart"].texture2, NULL, &buttons["restart"].cord);
+						break;
+					default:
+						break;
+					}
+				}
+				SDL_RenderPresent(rend);
+			}
 		}
 		//limiting frame
 		frameTime = SDL_GetTicks() - frameStart;
