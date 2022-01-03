@@ -4,20 +4,27 @@
 #include <SDL.h>
 #include <SDL_image.h>
 #include <SDL_timer.h>
+#include <SDL_mixer.h>
 #include <string>
 #include <map>
 #include <set>
 #include <vector>
 #include <random>
+#include <math.h>
 
+
+#define MAX_SPAWN_TIME 500
+#define MIN_SPAWN_TIME 250
+#define MIN_ENEMY_HP 4 
 using namespace std;
 
 const int bulletX = 15, bulletY = 15;
 const int windowX = 1200, windowY = 700;
 
-int bullet_cnt, cooldown, damage_multiplier=1, skill_point=0, characther_HP=20;
+int speed,bullet_cnt, cooldown, damage_multiplier=1, skill_point=0, characther_HP=20;
 
-int speed; 
+bool musicOnOff = true, soundOnOff=true;
+
 struct fire{
 	SDL_Rect pos;
 	int life = 100;
@@ -28,15 +35,26 @@ struct fire{
 
 struct enemy {
 	SDL_Rect pos;
-	int HP = 4;
+	int HP = MIN_ENEMY_HP;
 	int hit_tex_life = 11;
 	set<long long> hit_by;
-	SDL_Texture* texture; // change enemy color green->yellow->red by health FT510
+	SDL_Texture* texture; 
+
+	void move(int score, long random_number ) {
+		if (score >= 250&& random_number%5==0) {
+			if (random_number % 2 == 0 || pos.x <= 5) {
+				pos.x += 5;
+			}
+			else {
+				pos.x -= 5;
+			}
+		}
+		pos.y += 2;
+	}
 };
 
 struct button {
 	SDL_Rect cord;
-	int state = 0; // 0-normal, 1-mouseOver, 2 - Pressed
 	SDL_Texture* texture,*texture2;
 	int id;
 	int check_pressed(int x, int y) {
@@ -53,12 +71,6 @@ struct skill {
 	vector<SDL_Texture*> textures;
 	SDL_Texture* up_textures[3];
 	int level = 0;
-};
-
-
-struct luck {
-	int cooldown = 10;
-	int id; // 1-bullet++, 2 - cooldown--, 3 - damage++, 4 cooldown++ FT510
 };
 
 
@@ -85,11 +97,21 @@ void RenderHPBar(int x, int y, int w, int h, float Percent, SDL_Color FGColor, S
 	SDL_SetRenderDrawColor(Renderer, old.r, old.g, old.b, old.a);
 }
 
+
 int main(int argc, char* argv[])
 {
 	mt19937 mt(time(NULL));
+	SDL_DisplayMode dm;
 
-	// retutns zero on success else non-zero
+	//initialization
+
+	SDL_Init(SDL_INIT_VIDEO);
+	SDL_Init(SDL_INIT_AUDIO);
+	if (SDL_GetDesktopDisplayMode(0, &dm))
+	{
+		printf("Error getting desktop display mode\n%s\n",SDL_GetError());
+		return -1;
+	}
 	if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
 		printf("error initializing SDL: %s\n", SDL_GetError());
 	}
@@ -103,12 +125,16 @@ int main(int argc, char* argv[])
 		printf("SDL_ttf could not initialize! SDL_ttf Error: %s\n", TTF_GetError());
 	}
 
-	SDL_Init(SDL_INIT_VIDEO);
+	if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0)
+	{
+		printf("SDL_mixer could not initialize! SDL_mixer Error: %s\n", Mix_GetError());
+	}
+	
 	SDL_Window* win = SDL_CreateWindow("Space Fighter", // creates a window
 		SDL_WINDOWPOS_CENTERED,
 		SDL_WINDOWPOS_CENTERED,
 		windowX, windowY, 0);
-
+	
 	// triggers the program that controls
 	// graphics hardware and sets flags
 	Uint32 render_flags = SDL_RENDERER_ACCELERATED;
@@ -122,66 +148,77 @@ int main(int argc, char* argv[])
 	//
 	map<string,button> buttons, gameOverButtons;
 	map<string, skill> skills;
+	
 
+	vector<SDL_Texture*> spaceship_textures;
+	int current_skin = 1;
 	// for saving temporarily
 	button tmp;
 	SDL_Texture* tmpTex;
 	//import textures
-	surface = IMG_Load("Textures\\spaceFighter.png");
-	SDL_Texture* spaceship_texture = SDL_CreateTextureFromSurface(rend, surface);
-	SDL_FreeSurface(surface);
-	
+
+	surface = IMG_Load("Textures\\spaceShips\\spaceFighter.png");
+	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
+	spaceship_textures.push_back(tmpTex);
+
+	surface = IMG_Load("Textures\\spaceShips\\spaceFighter1.png");
+	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
+	spaceship_textures.push_back(tmpTex);
+
+	surface = IMG_Load("Textures\\spaceShips\\spaceFighter2.png");
+	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
+	spaceship_textures.push_back(tmpTex);
+
+	surface = IMG_Load("Textures\\spaceShips\\spaceFighter3.png");
+	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
+	spaceship_textures.push_back(tmpTex);
+
+	surface = IMG_Load("Textures\\spaceShips\\spaceFighter4.png");
+	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
+	spaceship_textures.push_back(tmpTex);
+
+	surface = IMG_Load("Textures\\UI\\keybinds.png");
+	SDL_Texture* keybindsTexture = SDL_CreateTextureFromSurface(rend, surface);
+	SDL_Rect keybindsPos = {windowX-520,windowY-520, 500,500};
+
 	surface = IMG_Load("Textures\\sky.jpg");
 	SDL_Texture* background_image = SDL_CreateTextureFromSurface(rend, surface), *background_image2 = SDL_CreateTextureFromSurface(rend, surface);
-	SDL_FreeSurface(surface);
 
 	surface = IMG_Load("Textures\\laser.jpg");
 	SDL_Texture* laser_tex = SDL_CreateTextureFromSurface(rend, surface);
-	SDL_FreeSurface(surface);
 
 	surface = IMG_Load("Textures\\green_enemies.png");
 	SDL_Texture* green_enemy = SDL_CreateTextureFromSurface(rend, surface);
-	SDL_FreeSurface(surface);
 
 	surface = IMG_Load("Textures\\yellow_enemies.png");
 	SDL_Texture* yellow_enemy = SDL_CreateTextureFromSurface(rend, surface);
-	SDL_FreeSurface(surface);
-
+	
 	surface = IMG_Load("Textures\\red_enemies.png");
 	SDL_Texture* red_enemy = SDL_CreateTextureFromSurface(rend, surface);
-	SDL_FreeSurface(surface);
-
-	surface = IMG_Load("Textures\\lucky_enemy.png");
-	SDL_Texture* lucky_enemy = SDL_CreateTextureFromSurface(rend, surface);
-	SDL_FreeSurface(surface);
-
+	
 	surface = IMG_Load("Textures\\white.jpg");
 	SDL_Texture* on_hit_tex = SDL_CreateTextureFromSurface(rend, surface);
-	SDL_FreeSurface(surface);
-	
 
-
-	// add information about keybinding to pause screen FT510
 	surface = IMG_Load("Textures\\UI\\background.png");
 	SDL_Texture* pauseBackgroundTexture = SDL_CreateTextureFromSurface(rend, surface);
-	SDL_FreeSurface(surface);
+	
 
 	// import button textures and initialize buttons
 	surface = IMG_Load("Textures\\UI\\playButton.png");
 	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
-	SDL_FreeSurface(surface);
+	
 	buttons["play"].texture = tmpTex;
 	buttons["play"].cord.x = buttons["play"].cord.y = 50;
 	buttons["play"].cord.w = 250; buttons["play"].cord.h = 100;
 	buttons["play"].id = 0;
 	surface = IMG_Load("Textures\\UI\\playButton2.png");
 	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
-	SDL_FreeSurface(surface);
+	
 	buttons["play"].texture2 = tmpTex;
 
 	surface = IMG_Load("Textures\\UI\\settingsButton.png");
 	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
-	SDL_FreeSurface(surface);
+	
 	buttons["settings"].texture = tmpTex;
 	buttons["settings"].texture = tmpTex;
 	buttons["settings"].cord.x = 50,  buttons["settings"].cord.y = 175;
@@ -189,12 +226,12 @@ int main(int argc, char* argv[])
 	buttons["settings"].id = 1;
 	surface = IMG_Load("Textures\\UI\\settingsButton2.png");
 	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
-	SDL_FreeSurface(surface);
+	
 	buttons["settings"].texture2 = tmpTex;
 
 	surface = IMG_Load("Textures\\UI\\quitButton.png");
 	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
-	SDL_FreeSurface(surface);
+	
 	buttons["quit"].texture = tmpTex;
 	buttons["quit"].texture = tmpTex;
 	buttons["quit"].cord.x =50,  buttons["quit"].cord.y = 300;
@@ -202,31 +239,47 @@ int main(int argc, char* argv[])
 	buttons["quit"].id = 2;
 	surface = IMG_Load("Textures\\UI\\quitButton2.png");
 	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
-	SDL_FreeSurface(surface);
+	
 	buttons["quit"].texture2 = tmpTex;
 
 	surface = IMG_Load("Textures\\UI\\continueButton.png");
 	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
-	SDL_FreeSurface(surface);
+	
 	buttons["continue"].texture = tmpTex;
 	buttons["continue"].cord.x = buttons["continue"].cord.y = 50;
 	buttons["continue"].cord.w = 250; buttons["continue"].cord.h = 100;
 	buttons["continue"].id = 3;
 	surface = IMG_Load("Textures\\UI\\continueButton2.png");
 	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
-	SDL_FreeSurface(surface);
+	
 	buttons["continue"].texture2 = tmpTex;
 
 	surface = IMG_Load("Textures\\UI\\restartButton.png");
 	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
-	SDL_FreeSurface(surface);
+	
+	buttons["restart"].texture = tmpTex;
+	buttons["restart"].cord.x = 350, buttons["restart"].cord.y = 50;
+	buttons["restart"].cord.w = 250; buttons["restart"].cord.h = 100;
+	buttons["restart"].id = 4;
+	surface = IMG_Load("Textures\\UI\\restartButton2.png");
+	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
+	buttons["restart"].texture2 = tmpTex;
+	
+	surface = IMG_Load("Textures\\UI\\soundOn.png");
+	buttons["sound"].texture = SDL_CreateTextureFromSurface(rend, surface);
+	surface = IMG_Load("Textures\\UI\\soundOff.png");
+	buttons["sound"].texture2 = SDL_CreateTextureFromSurface(rend, surface);
+	buttons["sound"].cord = { 330,200,60,60 };
+	buttons["sound"].id = 5;
+
+	surface = IMG_Load("Textures\\UI\\restartButton.png");
+	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
 	gameOverButtons["restart"].texture = tmpTex;
 	gameOverButtons["restart"].cord.x = gameOverButtons["restart"].cord.y = 50;
 	gameOverButtons["restart"].cord.w = 250; gameOverButtons["restart"].cord.h = 100;
 	gameOverButtons["restart"].id = 0;
 	surface = IMG_Load("Textures\\UI\\restartButton2.png");
 	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
-	SDL_FreeSurface(surface);
 	gameOverButtons["restart"].texture2 = tmpTex;
 
 	gameOverButtons["quit"] = buttons["quit"];
@@ -299,11 +352,17 @@ int main(int argc, char* argv[])
 	skills["speed"].up_cord.h = skills["speed"].up_cord.w = 50;
 	skills["speed"].up_cord.x += 270;
 	skills["speed"].up_cord.y = windowY - 45;
+
+	Mix_Music* gameMusic=Mix_LoadMUS("Audio\\bg.mp3");
+
+	Mix_Chunk* laserSFX=Mix_LoadWAV("Audio\\laserSFX.mp3");
+
+
 	TTF_Font* font = TTF_OpenFont("Textures\\evilEmpire.ttf", 100);
 	if (font == NULL) {
 		printf("%s", TTF_GetError());
 	}
-	SDL_Color White = { 255,255,255,255 }, random = {255,0,0,255};
+	SDL_Color White = { 255,255,255,255 }, red = {255,0,0,255};
 
 	long score = 0;
 	string scr;
@@ -321,8 +380,9 @@ int main(int argc, char* argv[])
 	scoreTextPos.w = 150;
 	scoreTextPos.h = 60;
 	// connects our texture with main_pos to control position
-	SDL_QueryTexture(spaceship_texture, NULL, NULL, &main_pos.w, &main_pos.h);
-
+	for (auto &itr : spaceship_textures) {
+		SDL_QueryTexture(itr, NULL, NULL, &main_pos.w, &main_pos.h);
+	}
 	// adjust height and width of our spaceship.
 	main_pos.w = 80;
 	main_pos.h = 80;
@@ -336,38 +396,57 @@ int main(int argc, char* argv[])
 	// controls annimation loop
 	int close = 0;
 
-	
-
 	vector <fire> fires,fires_tmp; 
 	
+	// temporary fire and enemy for storing some temporary data
 	fire fr;
-
 	enemy en;
+
 	vector<enemy> enemies,enemies_tmp;
 	
-	int counter = -1; 
+	int counter = MIN_SPAWN_TIME; 
 	long long fire_id = 0; // for assigning unique id
 	int pause = 1, stop_debug=0;
 	bool startFlag = 0;
 
-	speed = 600; // spaceship
-	//skills
-	//add these skills -> bullet cnt ++, cooldown --, movement speed ++, bullet damage ++( multiple bullet under 1 image max 3) FT510
-	// add these extras -> lucky enemies with special ammos - 4 bullet in one , unlucky bullet increase enemy health, big bullet 
-	bullet_cnt = 0; // 3 bullet
-	cooldown = 25; 
-	damage_multiplier = 1; // explosion 
-	int cooldown_cnt = 30, used_skill_point=0, escapedEnemies=0; 
-	int bullet_crd[4][4] = {{33,0,0,0},{0,66,0,0},{0,33,66,0},{-8,18,44,70}};
-	long long starting_time = time(NULL);
-	//animation loop
-	while (!close) {
-		
-		skill_point = score / 50;
+	speed = 600; // spaceship speed
 
+	//skills
+	bullet_cnt = 0;
+	cooldown = 25; 
+	damage_multiplier = 1; 
+	int cooldown_cnt = 30, used_skill_point=0, escapedEnemies=0; 
+
+	//bullet cordinates for spawning
+	int bullet_crd[4][4] = {{33,0,0,0},{22,44,0,0},{0,33,66,0},{-8,18,44,70}};
+
+	long long starting_time = time(NULL);
+
+	int enemy_spawn_rate_L=MIN_SPAWN_TIME,enemy_spawn_rate_R=MAX_SPAWN_TIME;
+	bool settingsPanelOnOff = 1;
+	//animation loop
+	Uint32 frameStart;
+	int frameTime;
+	while (!close) {
+		if (musicOnOff == 0 && Mix_PausedMusic() == 0) {
+			Mix_PauseMusic();
+		}
+
+		frameStart = SDL_GetTicks();
+		skill_point = score / 50;
+		enemy_spawn_rate_L = max(MIN_SPAWN_TIME-score*3/5, 50l);
+		enemy_spawn_rate_R = max(MAX_SPAWN_TIME - score / 50 * 30, 90l);
 		cooldown_cnt++;
 		SDL_Event event;
+		//if escapedEnemies is bigger than HP then game is over
+
+		// Game over state
 		if (escapedEnemies >= characther_HP) {
+			if (Mix_PausedMusic() == 0)
+			{
+				//pause the music
+				Mix_PauseMusic();
+			}
 			while (SDL_PollEvent(&event)) {
 
 				switch (event.type) {
@@ -380,7 +459,7 @@ int main(int argc, char* argv[])
 						int x, y;
 						SDL_GetMouseState(&x, &y);
 						map<string, button>::iterator itr;
-						//printf("%d %d\n", x, y);
+
 						for (itr = gameOverButtons.begin(); itr != gameOverButtons.end(); itr++) {
 							if ((*itr).second.check_pressed(x, y) != -1) {
 								//cout << (*itr).second.check_pressed(x, y) << " "<<(*itr).second.id << endl;
@@ -395,12 +474,12 @@ int main(int argc, char* argv[])
 									skill_point = 0;
 									cooldown = 25, damage_multiplier = 1, bullet_cnt = 0,speed=600;
 									cooldown_cnt = 30, used_skill_point = 0, escapedEnemies = 0;
-									for (auto &itr : skills) {
-										itr.second.level = 0;
+									for (auto &itrr : skills) {
+										itrr.second.level = 0;
 									}
-									startFlag = 0;
 									fire_id = 0;
-									counter = -1;
+									counter = MIN_SPAWN_TIME-10;
+									enemy_spawn_rate_L = MIN_SPAWN_TIME, enemy_spawn_rate_R = MAX_SPAWN_TIME;
 									score = 0;
 									break;
 								case 1:
@@ -447,24 +526,22 @@ int main(int argc, char* argv[])
 			}
 			SDL_RenderPresent(rend);
 
-			// calculates to 60 fps
-			SDL_Delay(windowX / 60);
 		}
 		else if (!pause) {
 			//Main Game
+			
+			//counter for time gap between enemy spawn time
 			if (counter > 10000) counter = -1;
 			counter++;
-			if (counter % 100 == 0) {
-
+			// if gap is between enemy_spawn_rate_L and R then spawn enemy
+			if (counter ==enemy_spawn_rate_R ||(counter>enemy_spawn_rate_L && mt()%20==0)) {
+				counter = 0;
 				
 				en.pos = cord;
 				en.pos.x = mt() % (windowX - 200) + 15;
 				en.texture = green_enemy;
-				
-				// luck block enemies FT510
-				//if (mt() % 10 == 0) en.texture = lucky_enemy;
-				
-				
+
+				en.HP = 4 + score / 150;
 				enemies.push_back(en);
 				
 				SDL_QueryTexture(en.texture, NULL, NULL, &enemies[enemies.size() - 1].pos.w, &enemies[enemies.size() - 1].pos.h);
@@ -481,6 +558,7 @@ int main(int argc, char* argv[])
 					break;
 				case SDL_MOUSEBUTTONDOWN:
 					if (event.button.button == SDL_BUTTON_LEFT && cooldown_cnt>=cooldown) {
+						if(soundOnOff) Mix_PlayChannel(-1, laserSFX, 0);
 						for (int i = 0; i < bullet_cnt%4+1; i++) {
 							for (int j = 0; j < damage_multiplier; j++) {
 								fr.pos = main_pos;
@@ -499,17 +577,16 @@ int main(int argc, char* argv[])
 
 				case SDL_KEYDOWN:
 					switch (event.key.keysym.scancode) {
-					case SDL_SCANCODE_E:
+					case SDL_SCANCODE_P:
 						stop_debug = 1 - stop_debug; // for debug
  						break;
 					case SDL_SCANCODE_G:
 						score += 10; // for not wasting time
 						break;
-					case SDL_SCANCODE_T:
-						cout << time(NULL) - starting_time << endl; // for fixing some time related bugs
+					case SDL_SCANCODE_Q:
+						current_skin = (current_skin + 1) % spaceship_textures.size();
 						break;
 					case SDL_SCANCODE_ESCAPE:
-					case SDL_SCANCODE_P:
 						pause = 1-pause;
 						break;
 					case SDL_SCANCODE_W:
@@ -528,28 +605,51 @@ int main(int argc, char* argv[])
 					case SDL_SCANCODE_RIGHT:
 						main_pos.x += speed / 30;
 						break;
-					case SDL_SCANCODE_1:
+					case SDL_SCANCODE_M:
+						if (Mix_PlayingMusic() == 0)
+						{
+							//Play the music
+							Mix_PlayMusic(gameMusic, -1);
+						}
+						//If music is being played
+						else
+						{
+							//If the music is paused
+							if (Mix_PausedMusic() == 1)
+							{
+								//Resume the music
+								Mix_ResumeMusic();
+							}
+							//If the music is playing
+							else
+							{
+								//Pause the music
+								Mix_PauseMusic();
+							}
+						}
+						break;
+					case SDL_SCANCODE_2:
 						if (skill_point - used_skill_point > 0 && skills["bulletCnt"].level < 3) {
 							bullet_cnt++;
 							skills["bulletCnt"].level++;
 							used_skill_point++;
 						}
 						break;
-					case SDL_SCANCODE_2:
+					case SDL_SCANCODE_3:
 						if (skill_point - used_skill_point > 0 && skills["cooldown"].level < 3) {
 							skills["cooldown"].level++;
 							cooldown -= 5;
 							used_skill_point++;
 						}
 						break;
-					case SDL_SCANCODE_3:
+					case SDL_SCANCODE_4:
 						if (skill_point - used_skill_point > 0 && skills["speed"].level < 3) {
 							skills["speed"].level++;
 							speed += 30;
 							used_skill_point++;
 						}
 						break;
-					case SDL_SCANCODE_4:
+					case SDL_SCANCODE_1:
 						if (skill_point - used_skill_point > 0 && skills["damage"].level < 3) {
 							damage_multiplier++;
 							skills["damage"].level++;
@@ -593,40 +693,40 @@ int main(int argc, char* argv[])
 				SDL_RenderCopy(rend, background_image2, NULL, &background2);
 
 
-				SDL_RenderCopy(rend, spaceship_texture, NULL, &main_pos);
+				SDL_RenderCopy(rend, spaceship_textures[current_skin%spaceship_textures.size()], NULL, &main_pos);
 				//score update
 				scr = "Score: " + to_string(score);
 				surface = TTF_RenderText_Solid(font, scr.c_str(), White);
-				if (surface == NULL) {
-					cout <<time(NULL)-starting_time<<" "<< TTF_GetError() << endl;
-				}
 
 				scoreTextTexture = SDL_CreateTextureFromSurface(rend, surface);
-				SDL_FreeSurface(surface);
+				
 				SDL_RenderCopy(rend, scoreTextTexture, NULL, &scoreTextPos);
 
-
+				//renders lasers and also checks the collision with enemies
 				for (int i = 0; i < fires.size(); i++) {
 					if (fires[i].life > 0) {
 						SDL_RenderCopy(rend, laser_tex, NULL, &fires[i].pos);
 						for (int j = 0; j < enemies.size(); j++) {
 							if (check_hit(fires[i], enemies[j])) {
-								//cout << enemies[j].hit_by.size() << endl;
+					
 								enemies[j].hit_tex_life = 10;
 								enemies[j].hit_by.insert(fires[i].id);
 							}
 						}
-						//fires[i].pos.x += 10;
+		
 						fires[i].pos.y -= 10;
 						fires[i].life--;
+						//copies fires which is needed to be rendered in next frame to temporary vector
 						if (fires[i].life > 0)
 							fires_tmp.push_back(fires[i]);
 					}
 				}
-
+				//copies fires back to main vector 
 				fires.clear();
 				for (int i = 0; i < fires_tmp.size(); i++) fires.push_back(fires_tmp[i]);
 				fires_tmp.clear();
+
+
 				int escaped_enemies = 0; // escaped enemies for 1 unit of time
 				for (int i = 0; i < enemies.size(); i++) {
 					if (enemies[i].pos.y >= 800) escaped_enemies++;
@@ -635,9 +735,8 @@ int main(int argc, char* argv[])
 						// change color by health
 						if (enemies[i].hit_by.size() >= enemies[i].HP / 3 * 2) enemies[i].texture = red_enemy;
 						else if (enemies[i].hit_by.size() >= enemies[i].HP / 3) enemies[i].texture = yellow_enemy;
-						
-						
 
+						// makes enemies hit by main characther white for next 10 frame 
 						if (enemies[i].hit_tex_life <= 10 && enemies[i].hit_tex_life > 0) {
 							SDL_RenderCopy(rend, on_hit_tex, NULL, &enemies[i].pos);
 							enemies[i].hit_tex_life--;
@@ -646,16 +745,15 @@ int main(int argc, char* argv[])
 							enemies[i].hit_tex_life = 11;
 							SDL_RenderCopy(rend, enemies[i].texture, NULL, &enemies[i].pos);
 						}
-						//fires[i].pos.x += 10;
-						enemies[i].pos.y += 2;
+						enemies[i].move(score, mt());
+						
 						enemies_tmp.push_back(enemies[i]);
-					}
-					else if (enemies[i].hit_by.size() >= 4 && enemies[i].texture == lucky_enemy) {
-						//lucky_func();
 					}
 
 				}
-				escapedEnemies += escaped_enemies;
+				//escapedEnemies is for calculating health 
+				//escaped_enemies is for calculating score change and it is the count of enemies escaped just in 1 frame
+				escapedEnemies += escaped_enemies; 
 				score += (enemies.size() - enemies_tmp.size()-escaped_enemies) * 10;
 				
 				enemies.clear();
@@ -663,21 +761,29 @@ int main(int argc, char* argv[])
 					enemies.push_back(enemies_tmp[i]);
 				}
 				enemies_tmp.clear();
-
+				
+				//renders skills icons 
 				for (auto itr : skills) {
 					SDL_RenderCopy(rend, itr.second.textures[itr.second.level], NULL, &itr.second.cord);
 					if(skill_point - used_skill_point > 0 && itr.second.level<3)
 					SDL_RenderCopy(rend, itr.second.up_textures[itr.second.level], NULL, &itr.second.up_cord);
-					//cout << itr.first << endl;
 				}
-				RenderHPBar(windowX - 300, windowY-25, 200, 20, escapedEnemies*1.0/characther_HP, White, random, rend);
+				// render HP bar
+				RenderHPBar(windowX - 300, windowY-25, 200, 20, escapedEnemies*1.0/characther_HP, White, red, rend);
+
 				SDL_RenderPresent(rend);
 			}
 
-			// calculates to 60 fps
-			SDL_Delay(1000 / 60);
 		}
 		else {
+		SDL_RenderClear(rend);
+		SDL_RenderCopy(rend, pauseBackgroundTexture, NULL, NULL);
+		//paused state
+		if (Mix_PausedMusic() == 0)
+		{
+			//pause the music
+			Mix_PauseMusic();
+		}
 			while (SDL_PollEvent(&event)) {
 				
 				switch (event.type) {
@@ -690,23 +796,49 @@ int main(int argc, char* argv[])
 							int x, y;
 							SDL_GetMouseState(&x, &y);
 							map<string, button>::iterator itr;
-							//printf("%d %d\n", x, y);
 							for (itr = buttons.begin(); itr != buttons.end(); itr++) {
+								if ((*itr).second.id == 4 && startFlag == 0) continue; // if game doesnt started once before dont show restart button
+
 								if ((*itr).second.check_pressed(x, y) != -1) {
-									//cout << (*itr).second.check_pressed(x, y) << " "<<(*itr).second.id << endl;
 									switch ((*itr).second.check_pressed(x, y))
 									{
 									case 0:
 										if (startFlag == 0) {
 											startFlag++;
+											// if game started before replace play button with continue
 											buttons["play"].texture = buttons["continue"].texture;
-											buttons["play"].texture2 = buttons["continue"].texture2;
+											buttons["play"].texture2 = buttons["continue"].texture2; 
 										}
 										pause = pause - 1;
 										break;
+									case 1:										
+										settingsPanelOnOff = 1 - settingsPanelOnOff;
+										break;
 									case 2:
+										//quit
 										close = 1;
 										break;
+									case 4:
+										//restarts everything
+										main_pos.x = (windowX - main_pos.w) / 2;
+										main_pos.y = (windowY - main_pos.h) / 2;
+
+										fires.clear();
+										enemies.clear();
+										skill_point = 0;
+										cooldown = 25, damage_multiplier = 1, bullet_cnt = 0, speed = 600;
+										cooldown_cnt = 30, used_skill_point = 0, escapedEnemies = 0;
+										for (auto& itrr : skills) {
+											itrr.second.level = 0;
+										}
+										fire_id = 0;
+										counter = MIN_SPAWN_TIME - 10;
+										enemy_spawn_rate_L = MIN_SPAWN_TIME, enemy_spawn_rate_R = MAX_SPAWN_TIME;
+										score = 0;
+										pause = pause - 1;
+										break;
+									case 5:
+										soundOnOff = 1 - soundOnOff;
 									default:
 										break;
 									}
@@ -727,11 +859,23 @@ int main(int argc, char* argv[])
 				}
 
 			}
-			SDL_RenderClear(rend);
-			SDL_RenderCopy(rend, pauseBackgroundTexture, NULL, NULL);
+			if (settingsPanelOnOff == 0) {
+				if (soundOnOff == 1)
+					SDL_RenderCopy(rend, buttons["sound"].texture, NULL, &buttons["sound"].cord);
+				else {
+					SDL_RenderCopy(rend, buttons["sound"].texture2, NULL, &buttons["sound"].cord);
+				}
+			}
 			SDL_RenderCopy(rend, buttons["play"].texture, NULL, &buttons["play"].cord);
 			SDL_RenderCopy(rend, buttons["settings"].texture, NULL, &buttons["settings"].cord);
 			SDL_RenderCopy(rend, buttons["quit"].texture, NULL, &buttons["quit"].cord);
+			SDL_RenderCopy(rend, keybindsTexture, NULL, &keybindsPos);
+			if (startFlag == 1) {
+				SDL_RenderCopy(rend, buttons["restart"].texture, NULL, &buttons["restart"].cord);
+			}
+
+			//checks if mouse is over button
+			// and highlights it if mouse is over
 			int x, y;
 			SDL_GetMouseState(&x, &y);
 			for (auto itr : buttons) {
@@ -746,34 +890,54 @@ int main(int argc, char* argv[])
 				case 2:
 					SDL_RenderCopy(rend, buttons["quit"].texture2, NULL, &buttons["quit"].cord);
 					break;
+				case 4:
+					if(startFlag==1)
+						SDL_RenderCopy(rend, buttons["restart"].texture2, NULL, &buttons["restart"].cord);
+					break;
 				default:
 					break;
 				}
 			}
 			SDL_RenderPresent(rend);
 
-			// calculates to 60 fps
-			SDL_Delay(windowX / 60);
+		}
+		//limiting frame
+		frameTime = SDL_GetTicks() - frameStart;
+		if (1000 / 60 > frameTime) {
+			SDL_Delay(1000/60-frameTime);
 		}
 	}
-
-	// posroy texture
-	SDL_DestroyTexture(spaceship_texture);
+	
+	SDL_FreeSurface(surface);
+	
+	// Destosroy textures
+	SDL_DestroyTexture(keybindsTexture);
+	SDL_DestroyTexture(tmpTex);
+	SDL_DestroyTexture(pauseBackgroundTexture);
 	SDL_DestroyTexture(background_image);
 	SDL_DestroyTexture(background_image2);
-	SDL_DestroyTexture(lucky_enemy);
 	SDL_DestroyTexture(green_enemy);
 	SDL_DestroyTexture(laser_tex);
 	SDL_DestroyTexture(on_hit_tex);
-	for (auto itr : buttons) {
+	for (auto &itr : buttons) {
 		SDL_DestroyTexture(itr.second.texture);
 	}
+	for (auto &itr : gameOverButtons) {
+		SDL_DestroyTexture(itr.second.texture);
+	}
+	for (auto &itr : spaceship_textures) {
+		SDL_DestroyTexture(itr);
+	}
+
 	// destroy renderer
 	SDL_DestroyRenderer(rend);
 	// destroy window
 	SDL_DestroyWindow(win);
 
 	// close SDL
+	TTF_Quit();
+	Mix_Quit();
+	IMG_Quit();
 	SDL_Quit();
 
 	return 0;
