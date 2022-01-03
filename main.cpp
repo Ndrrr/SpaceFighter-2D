@@ -97,14 +97,14 @@ void RenderHPBar(int x, int y, int w, int h, float Percent, SDL_Color FGColor, S
 	SDL_SetRenderDrawColor(Renderer, old.r, old.g, old.b, old.a);
 }
 
-void EntryAnimation(SDL_Renderer* rend, SDL_Texture* background_image, SDL_Event event) {
+void EntryAnimation(SDL_Renderer* rend, SDL_Texture* background_image) {
 	string text = "2121...\nAliens are trying to invade the Earth...\nYou are the last hope of the planet...\nYou should not let aliens pass you...\n          Good Luck Agent!!!", text_on_screen = "";
 	SDL_Color yellow = { 255,255,0 };
 	SDL_RenderCopy(rend, background_image, NULL, NULL);
 	SDL_Surface* textSurface;
 	SDL_Texture* textTexture;
 	SDL_Rect textPos = { 20,50,20,20 }, dotPos = { 0,0,5,20 }, exclamationPos = { 0,0,10,20 };
-	
+	SDL_Event event;
 	TTF_Font* font = TTF_OpenFont("Textures\\evilEmpire.ttf", 500);
 	Mix_Chunk* keyPressSFX = Mix_LoadWAV("Audio\\keyPress.mp3");
 	bool exit = 0;
@@ -164,6 +164,8 @@ void EntryAnimation(SDL_Renderer* rend, SDL_Texture* background_image, SDL_Event
 		}
 		else
 			SDL_RenderCopy(rend, textTexture, NULL, &textPos);
+		SDL_FreeSurface(textSurface);
+		SDL_DestroyTexture(textTexture);
 		SDL_RenderPresent(rend);
 		SDL_Delay(200);
 	}
@@ -220,12 +222,17 @@ void GameOverAnimation(SDL_Renderer* rend, SDL_Texture* background_image) {
 		else textPos.x += 30;
 
 		textSurface = TTF_RenderText_Solid(font, text_on_screen.c_str(), red);
+		cout << TTF_GetError() << endl;
 		textTexture = SDL_CreateTextureFromSurface(rend, textSurface);
-
+		SDL_FreeSurface(textSurface);
+		if (font == NULL) cout << "font gg\n";
+		if (textTexture == NULL) cout << "texture gg\n" << TTF_GetError() << endl;
+		if (textSurface == NULL) cout << "surface gg\n";
 		if (text[i] != ' ' && soundOnOff) Mix_PlayChannel(-1, keyPressSFX, 0);
 
 		
 		SDL_RenderCopy(rend, textTexture, NULL, &textPos);
+		SDL_DestroyTexture(textTexture);
 		SDL_RenderPresent(rend);
 		SDL_Delay(200);
 	}
@@ -296,49 +303,62 @@ int main(int argc, char* argv[])
 	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
 	spaceship_textures.push_back(tmpTex);
 
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\spaceShips\\spaceFighter1.png");
 	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
 	spaceship_textures.push_back(tmpTex);
 
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\spaceShips\\spaceFighter2.png");
 	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
 	spaceship_textures.push_back(tmpTex);
 
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\spaceShips\\spaceFighter3.png");
 	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
 	spaceship_textures.push_back(tmpTex);
 
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\spaceShips\\spaceFighter4.png");
 	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
 	spaceship_textures.push_back(tmpTex);
 
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\UI\\keybinds.png");
 	SDL_Texture* keybindsTexture = SDL_CreateTextureFromSurface(rend, surface);
 	SDL_Rect keybindsPos = {windowX-520,windowY-520, 500,500};
 
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\sky.jpg");
 	SDL_Texture* background_image = SDL_CreateTextureFromSurface(rend, surface), *background_image2 = SDL_CreateTextureFromSurface(rend, surface);
 
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\laser.jpg");
 	SDL_Texture* laser_tex = SDL_CreateTextureFromSurface(rend, surface);
 
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\green_enemies.png");
 	SDL_Texture* green_enemy = SDL_CreateTextureFromSurface(rend, surface);
 
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\yellow_enemies.png");
 	SDL_Texture* yellow_enemy = SDL_CreateTextureFromSurface(rend, surface);
 	
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\red_enemies.png");
 	SDL_Texture* red_enemy = SDL_CreateTextureFromSurface(rend, surface);
 	
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\white.jpg");
 	SDL_Texture* on_hit_tex = SDL_CreateTextureFromSurface(rend, surface);
 
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\UI\\background.png");
 	SDL_Texture* pauseBackgroundTexture = SDL_CreateTextureFromSurface(rend, surface);
 	
 
 	// import button textures and initialize buttons
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\UI\\playButton.png");
 	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
 	
@@ -346,11 +366,13 @@ int main(int argc, char* argv[])
 	buttons["play"].cord.x = buttons["play"].cord.y = 50;
 	buttons["play"].cord.w = 250; buttons["play"].cord.h = 100;
 	buttons["play"].id = 0;
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\UI\\playButton2.png");
 	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
 	
 	buttons["play"].texture2 = tmpTex;
 
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\UI\\settingsButton.png");
 	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
 	
@@ -359,11 +381,13 @@ int main(int argc, char* argv[])
 	buttons["settings"].cord.x = 50,  buttons["settings"].cord.y = 175;
 	buttons["settings"].cord.w = 250; buttons["settings"].cord.h = 100;
 	buttons["settings"].id = 1;
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\UI\\settingsButton2.png");
 	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
 	
 	buttons["settings"].texture2 = tmpTex;
 
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\UI\\quitButton.png");
 	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
 	
@@ -372,11 +396,13 @@ int main(int argc, char* argv[])
 	buttons["quit"].cord.x =50,  buttons["quit"].cord.y = 300;
 	buttons["quit"].cord.w = 250; buttons["quit"].cord.h = 100;
 	buttons["quit"].id = 2;
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\UI\\quitButton2.png");
 	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
 	
 	buttons["quit"].texture2 = tmpTex;
 
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\UI\\continueButton.png");
 	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
 	
@@ -384,11 +410,13 @@ int main(int argc, char* argv[])
 	buttons["continue"].cord.x = buttons["continue"].cord.y = 50;
 	buttons["continue"].cord.w = 250; buttons["continue"].cord.h = 100;
 	buttons["continue"].id = 3;
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\UI\\continueButton2.png");
 	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
 	
 	buttons["continue"].texture2 = tmpTex;
 
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\UI\\restartButton.png");
 	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
 	
@@ -396,17 +424,20 @@ int main(int argc, char* argv[])
 	buttons["restart"].cord.x = 350, buttons["restart"].cord.y = 50;
 	buttons["restart"].cord.w = 250; buttons["restart"].cord.h = 100;
 	buttons["restart"].id = 4;
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\UI\\restartButton2.png");
 	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
 	buttons["restart"].texture2 = tmpTex;
-	
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\UI\\soundOn.png");
 	buttons["sound"].texture = SDL_CreateTextureFromSurface(rend, surface);
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\UI\\soundOff.png");
 	buttons["sound"].texture2 = SDL_CreateTextureFromSurface(rend, surface);
 	buttons["sound"].cord = { 330,200,60,60 };
 	buttons["sound"].id = 5;
 
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\UI\\restartButton.png");
 	tmpTex = SDL_CreateTextureFromSurface(rend, surface);
 	gameOverButtons["restart"].texture = tmpTex;
@@ -425,57 +456,76 @@ int main(int argc, char* argv[])
 	skills["cooldown"].cord.x = windowX - 70;
 	skills["cooldown"].cord.y = windowY - 70;
 	skills["cooldown"].cord.h = skills["cooldown"].cord.w = 50;
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\Skills\\Cooldown\\blue.png");
 	skills["cooldown"].textures.push_back(SDL_CreateTextureFromSurface(rend,surface));
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\Skills\\Cooldown\\green.png");
 	skills["cooldown"].textures.push_back(SDL_CreateTextureFromSurface(rend, surface));
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\Skills\\Cooldown\\yellow.png");
 	skills["cooldown"].textures.push_back(SDL_CreateTextureFromSurface(rend, surface));
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\Skills\\Cooldown\\red.png");
 	skills["cooldown"].textures.push_back(SDL_CreateTextureFromSurface(rend, surface));
 	
 	skills["bulletCnt"].cord.x = windowX - 70;
 	skills["bulletCnt"].cord.y = windowY - 125;
 	skills["bulletCnt"].cord.h = skills["bulletCnt"].cord.w = 50;
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\Skills\\BulletCnt\\blue.png");
 	skills["bulletCnt"].textures.push_back(SDL_CreateTextureFromSurface(rend, surface));
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\Skills\\BulletCnt\\green.png");
 	skills["bulletCnt"].textures.push_back(SDL_CreateTextureFromSurface(rend, surface));
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\Skills\\BulletCnt\\yellow.png");
 	skills["bulletCnt"].textures.push_back(SDL_CreateTextureFromSurface(rend, surface));
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\Skills\\BulletCnt\\red.png");
 	skills["bulletCnt"].textures.push_back(SDL_CreateTextureFromSurface(rend, surface));
 
 	skills["damage"].cord.x = windowX - 70;
 	skills["damage"].cord.y = windowY - 180;
 	skills["damage"].cord.h = skills["damage"].cord.w = 50;
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\Skills\\Damage\\blue.png");
 	skills["damage"].textures.push_back(SDL_CreateTextureFromSurface(rend, surface));
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\Skills\\Damage\\green.png");
 	skills["damage"].textures.push_back(SDL_CreateTextureFromSurface(rend, surface));
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\Skills\\Damage\\yellow.png");
 	skills["damage"].textures.push_back(SDL_CreateTextureFromSurface(rend, surface));
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\Skills\\Damage\\red.png");
 	skills["damage"].textures.push_back(SDL_CreateTextureFromSurface(rend, surface));
 
 	skills["speed"].cord.x = 20;
 	skills["speed"].cord.y = windowY - 160;
 	skills["speed"].cord.h = 140, skills["speed"].cord.w=195;
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\Skills\\Speed\\blue.png");
 	skills["speed"].textures.push_back(SDL_CreateTextureFromSurface(rend, surface));
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\Skills\\Speed\\green.png");
 	skills["speed"].textures.push_back(SDL_CreateTextureFromSurface(rend, surface));
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\Skills\\Speed\\yellow.png");
 	skills["speed"].textures.push_back(SDL_CreateTextureFromSurface(rend, surface));
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\Skills\\Speed\\red.png");
 	skills["speed"].textures.push_back(SDL_CreateTextureFromSurface(rend, surface));
 
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\Skills\\LevelUp\\green.png");
 	skills["speed"].up_textures[0] = skills["damage"].up_textures[0] = skills["bulletCnt"].up_textures[0] = skills["cooldown"].up_textures[0] = SDL_CreateTextureFromSurface(rend, surface);
 
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\Skills\\LevelUp\\yellow.png");
 	skills["speed"].up_textures[1] = skills["damage"].up_textures[1] = skills["bulletCnt"].up_textures[1] = skills["cooldown"].up_textures[1] = SDL_CreateTextureFromSurface(rend, surface);
 
+	SDL_FreeSurface(surface);
 	surface = IMG_Load("Textures\\Skills\\LevelUp\\red.png");
 	skills["speed"].up_textures[2] = skills["damage"].up_textures[2] = skills["bulletCnt"].up_textures[2] = skills["cooldown"].up_textures[2] = SDL_CreateTextureFromSurface(rend, surface);
 	for (auto &itr : skills) {
@@ -841,11 +891,10 @@ int main(int argc, char* argv[])
 				//score update
 				scr = "Score: " + to_string(score);
 				surface = TTF_RenderText_Solid(font, scr.c_str(), White);
-
 				scoreTextTexture = SDL_CreateTextureFromSurface(rend, surface);
-				
+				SDL_FreeSurface(surface);
 				SDL_RenderCopy(rend, scoreTextTexture, NULL, &scoreTextPos);
-
+				SDL_DestroyTexture(scoreTextTexture);
 				//renders lasers and also checks the collision with enemies
 				for (int i = 0; i < fires.size(); i++) {
 					if (fires[i].life > 0) {
@@ -920,14 +969,14 @@ int main(int argc, char* argv[])
 
 		}
 		else {
-		SDL_RenderClear(rend);
-		SDL_RenderCopy(rend, pauseBackgroundTexture, NULL, NULL);
-		//paused state
-		if (Mix_PausedMusic() == 0)
-		{
-			//pause the music
-			Mix_PauseMusic();
-		}
+			entryAnimationPlayed = 0;
+			SDL_RenderClear(rend);
+			//paused state
+			if (Mix_PausedMusic() == 0)
+			{
+				//pause the music
+				Mix_PauseMusic();
+			}
 			while (SDL_PollEvent(&event)) {
 				
 				switch (event.type) {
@@ -949,7 +998,7 @@ int main(int argc, char* argv[])
 									case 0:
 										if (startFlag == 0) {
 											SDL_RenderClear(rend);
-											EntryAnimation(rend,background_image,event);
+											EntryAnimation(rend,background_image);
 											entryAnimationPlayed = 1;
 
 											startFlag++;
@@ -1010,6 +1059,7 @@ int main(int argc, char* argv[])
 			// if animation is played in this loop 
 			// dont render pause screen again
 			if (entryAnimationPlayed == 0) {
+				SDL_RenderCopy(rend, pauseBackgroundTexture, NULL, NULL);
 				if (settingsPanelOnOff == 0) {
 					if (soundOnOff == 1)
 						SDL_RenderCopy(rend, buttons["sound"].texture, NULL, &buttons["sound"].cord);
