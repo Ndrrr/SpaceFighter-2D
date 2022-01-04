@@ -544,7 +544,7 @@ int main(int argc, char* argv[])
 
 	Mix_Music* gameMusic=Mix_LoadMUS("Audio\\bg.mp3");
 
-	Mix_Chunk* laserSFX=Mix_LoadWAV("Audio\\laserSFX.mp3");
+	Mix_Chunk* laserSFX=Mix_LoadWAV("Audio\\laserSFX.mp3"), *explosionSFX=Mix_LoadWAV("Audio\\explosionSFX.wav");
 
 
 	TTF_Font* font = TTF_OpenFont("Textures\\evilEmpire.ttf", 100);
@@ -619,7 +619,8 @@ int main(int argc, char* argv[])
 
 	bool first_lose = 0;
 	vector <string> gameOverTexts;
-	gameOverTexts.push_back("Nothing Can Last Forever :(\nBut maybe you can try once more...");
+	gameOverTexts.push_back("Nothing Can Last Forever :(");
+	gameOverTexts.push_back("But maybe you can try once more...");
 	gameOverTexts.push_back("Earth had already been destroyed...\nIt was just a dream...");
 	//animation loop
 	Uint32 frameStart;
@@ -640,14 +641,21 @@ int main(int argc, char* argv[])
 		//if escapedEnemies is bigger than HP then game is over
 		// Game over state
 		if (escapedEnemies >= characther_HP) {
+			
 			if (gameOverAnimationPlayed <1) {
+				if (soundOnOff) Mix_PlayChannel(-1, explosionSFX, 0);
 				SDL_RenderClear(rend);
+				
+				SDL_Delay(1000);
 				GameOverAnimation(rend, background_image,gameOverTexts[gameOverAnimationPlayed]);
+				SDL_Delay(1000);
+				SDL_RenderClear(rend);
+				GameOverAnimation(rend, background_image, gameOverTexts[gameOverAnimationPlayed + 1]);
 				gameOverAnimationPlayed++;
 			}
 			if (gameOverAnimationPlayed == 1 && first_lose == 1) {
 				SDL_RenderClear(rend);
-				GameOverAnimation(rend, background_image, gameOverTexts[gameOverAnimationPlayed]);
+				GameOverAnimation(rend, background_image, gameOverTexts[gameOverAnimationPlayed+1]);
 				gameOverAnimationPlayed++;
 			}
 			if (Mix_PausedMusic() == 0)
@@ -803,6 +811,9 @@ int main(int argc, char* argv[])
 					case SDL_SCANCODE_D:
 					case SDL_SCANCODE_RIGHT:
 						main_pos.x += speed / 30;
+						break;
+					case SDL_SCANCODE_H:
+						escapedEnemies++;
 						break;
 					case SDL_SCANCODE_M:
 						if (Mix_PlayingMusic() == 0)
