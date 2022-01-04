@@ -174,14 +174,14 @@ void EntryAnimation(SDL_Renderer* rend, SDL_Texture* background_image) {
 	SDL_RenderClear(rend);
 }
 
-void GameOverAnimation(SDL_Renderer* rend, SDL_Texture* background_image) {
-	string text = "Nothing Can Last Forever :(", text_on_screen = "";
+void GameOverAnimation(SDL_Renderer* rend, SDL_Texture* background_image, string text) {
+	string text_on_screen = "";
 	SDL_Color red = { 255,20,0 };
 	SDL_RenderCopy(rend, background_image, NULL, NULL);
 	SDL_Surface* textSurface;
 	SDL_Texture* textTexture;
 	SDL_Event event;
-	SDL_Rect textPos = { 20,50,30,30 };
+	SDL_Rect textPos = { 20,50,30,30 }, dotPos = { 0,0,10,30 };
 
 	TTF_Font* font = TTF_OpenFont("Textures\\evilEmpire.ttf", 500);
 	Mix_Chunk* keyPressSFX = Mix_LoadWAV("Audio\\keyPress.mp3");
@@ -222,16 +222,20 @@ void GameOverAnimation(SDL_Renderer* rend, SDL_Texture* background_image) {
 		else textPos.x += 30;
 
 		textSurface = TTF_RenderText_Solid(font, text_on_screen.c_str(), red);
-		cout << TTF_GetError() << endl;
 		textTexture = SDL_CreateTextureFromSurface(rend, textSurface);
 		SDL_FreeSurface(textSurface);
-		if (font == NULL) cout << "font gg\n";
-		if (textTexture == NULL) cout << "texture gg\n" << TTF_GetError() << endl;
-		if (textSurface == NULL) cout << "surface gg\n";
+		
 		if (text[i] != ' ' && soundOnOff) Mix_PlayChannel(-1, keyPressSFX, 0);
 
-		
-		SDL_RenderCopy(rend, textTexture, NULL, &textPos);
+		if (text[i] == '.') {
+			dotPos.x = textPos.x, dotPos.y = textPos.y;
+			if (text[i - 2] == '.') dotPos.x -= 20;
+			else if (text[i - 1] == '.') dotPos.x -= 10;
+			SDL_RenderCopy(rend, textTexture, NULL, &dotPos);
+		}
+		else
+			SDL_RenderCopy(rend, textTexture, NULL, &textPos);
+
 		SDL_DestroyTexture(textTexture);
 		SDL_RenderPresent(rend);
 		SDL_Delay(200);
@@ -610,8 +614,13 @@ int main(int argc, char* argv[])
 	int enemy_spawn_rate_L=MIN_SPAWN_TIME,enemy_spawn_rate_R=MAX_SPAWN_TIME;
 	bool settingsPanelOnOff = 1;
 
-	bool gameOverAnimationPlayed = 0;
+	int gameOverAnimationPlayed = 0;
 	bool entryAnimationPlayed = 0;
+
+	bool first_lose = 0;
+	vector <string> gameOverTexts;
+	gameOverTexts.push_back("Nothing Can Last Forever :(\nBut maybe you can try once more...");
+	gameOverTexts.push_back("Earth had already been destroyed...\nIt was just a dream...");
 	//animation loop
 	Uint32 frameStart;
 	int frameTime;
@@ -626,15 +635,20 @@ int main(int argc, char* argv[])
 		enemy_spawn_rate_R = max(MAX_SPAWN_TIME - score / 50 * 30, 90l);
 		cooldown_cnt++;
 		SDL_Event event;
-		//if escapedEnemies is bigger than HP then game is over
 
+
+		//if escapedEnemies is bigger than HP then game is over
 		// Game over state
-		
 		if (escapedEnemies >= characther_HP) {
-			if (gameOverAnimationPlayed == 0) {
+			if (gameOverAnimationPlayed <1) {
 				SDL_RenderClear(rend);
-				GameOverAnimation(rend, background_image);
-				gameOverAnimationPlayed = 1;
+				GameOverAnimation(rend, background_image,gameOverTexts[gameOverAnimationPlayed]);
+				gameOverAnimationPlayed++;
+			}
+			if (gameOverAnimationPlayed == 1 && first_lose == 1) {
+				SDL_RenderClear(rend);
+				GameOverAnimation(rend, background_image, gameOverTexts[gameOverAnimationPlayed]);
+				gameOverAnimationPlayed++;
 			}
 			if (Mix_PausedMusic() == 0)
 			{
@@ -660,6 +674,7 @@ int main(int argc, char* argv[])
 								switch ((*itr).second.check_pressed(x, y))
 								{
 								case 0://restart everything
+									first_lose = 1;
 									main_pos.x = (windowX - main_pos.w) / 2;
 									main_pos.y = (windowY - main_pos.h) / 2;
 
@@ -686,14 +701,6 @@ int main(int argc, char* argv[])
 						}
 					}
 					break;
-				case SDL_KEYDOWN:
-					switch (event.key.keysym.scancode) {
-					case SDL_SCANCODE_P:
-						pause = 1 - pause;
-						break;
-					default:
-						break;
-					}
 				default:
 					break;
 				}
@@ -771,15 +778,13 @@ int main(int argc, char* argv[])
 
 				case SDL_KEYDOWN:
 					switch (event.key.keysym.scancode) {
-					case SDL_SCANCODE_P:
-						stop_debug = 1 - stop_debug; // for debug
- 						break;
 					case SDL_SCANCODE_G:
 						score += 10; // for not wasting time
 						break;
 					case SDL_SCANCODE_Q:
 						current_skin = (current_skin + 1) % spaceship_textures.size();
 						break;
+					case SDL_SCANCODE_P:
 					case SDL_SCANCODE_ESCAPE:
 						pause = 1-pause;
 						break;
@@ -1045,6 +1050,7 @@ int main(int argc, char* argv[])
 						break;
 					case SDL_KEYDOWN:
 						switch (event.key.keysym.scancode) {
+						case SDL_SCANCODE_ESCAPE:
 						case SDL_SCANCODE_P:
 							pause = 1 - pause;
 							break;
@@ -1109,8 +1115,6 @@ int main(int argc, char* argv[])
 		}
 	}
 	
-	SDL_FreeSurface(surface);
-	
 	// Destosroy textures
 	SDL_DestroyTexture(keybindsTexture);
 	SDL_DestroyTexture(tmpTex);
@@ -1143,3 +1147,4 @@ int main(int argc, char* argv[])
 
 	return 0;
 }
+
